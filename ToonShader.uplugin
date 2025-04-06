@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "ToonShader",
+	"Description": "给虚幻添加卡通渲染的ShaderModel",
+	"Category": "Rendering",
+	"CreatedBy": "DuoXu",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.4.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "ToonShader",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen"
+		},
+		{
+			"Name": "ToonShaderBootstrap",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "EarliestPossible"
+		}
+	]
+}
