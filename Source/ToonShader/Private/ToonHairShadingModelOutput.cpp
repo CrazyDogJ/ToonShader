@@ -44,7 +44,6 @@ int32 UToonHairShadingModelOutput::Compile(class FMaterialCompiler* Compiler, in
 	case EToonHairShadingModelOutput::SpecularOffset:
 		return CompileExpressionInput(SpecularOffset, 0.f);
 	}
-	checkNoEntry();
 	return CompilerError(Compiler, TEXT("Input missing"));
 }
 
@@ -64,7 +63,6 @@ uint32 UToonHairShadingModelOutput::GetInputType(int32 InputIndex)
 	case EToonHairShadingModelOutput::SpecularOffset:
 		return MCT_Float1;
 	}
-	checkNoEntry();
 	return MCT_Float1;
 }
 
@@ -75,11 +73,11 @@ FExpressionInput* UToonHairShadingModelOutput::GetInput(int32 InputIndex)
 	case EToonHairShadingModelOutput::TightenSpecular:
 		return &TightenSpecular;
 	case EToonHairShadingModelOutput::Scatter:
+		
 		return &Scatter;
 	case EToonHairShadingModelOutput::SpecularOffset:
 		return &SpecularOffset;
 	}
-	checkNoEntry();
 	return nullptr;
 }
 #endif

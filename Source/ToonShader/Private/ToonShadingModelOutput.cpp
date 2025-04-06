@@ -45,7 +45,6 @@ int32 UToonShadingModelOutput::Compile(class FMaterialCompiler* Compiler, int32 
 	case EToonShadingModelOutput::SpecularRange:
 		return CompileExpressionInput(SpecularRange, 0.f);
 	}
-	checkNoEntry();
 	return CompilerError(Compiler, TEXT("Input missing"));
 }
 
@@ -67,7 +66,6 @@ uint32 UToonShadingModelOutput::GetInputType(int32 InputIndex)
 	case EToonShadingModelOutput::SpecularRange:
 		return MCT_Float1;
 	}
-	checkNoEntry();
 	return MCT_Float1;
 }
 
@@ -84,7 +82,6 @@ FExpressionInput* UToonShadingModelOutput::GetInput(int32 InputIndex)
 	case EToonShadingModelOutput::SpecularRange:
 		return &SpecularRange;
 	}
-	checkNoEntry();
 	return nullptr;
 }
 #endif

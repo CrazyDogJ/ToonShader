@@ -44,7 +44,6 @@ int32 UAnisotropicShadingModelOutput::Compile(class FMaterialCompiler* Compiler,
 	case EAnisotropicShadingModelOutput::TangentRotation:
 		return CompileExpressionInput(TangentRotation, 0.f);
 	}
-	checkNoEntry();
 	return CompilerError(Compiler, TEXT("Input missing"));
 }
 
@@ -64,7 +63,6 @@ uint32 UAnisotropicShadingModelOutput::GetInputType(int32 InputIndex)
 	case EAnisotropicShadingModelOutput::TangentRotation:
 		return MCT_Float1;
 	}
-	checkNoEntry();
 	return MCT_Float1;
 }
 
@@ -79,7 +77,6 @@ FExpressionInput* UAnisotropicShadingModelOutput::GetInput(int32 InputIndex)
 	case EAnisotropicShadingModelOutput::TangentRotation:
 		return &TangentRotation;
 	}
-	checkNoEntry();
 	return nullptr;
 }
 #endif

@@ -333,6 +333,26 @@ void FMultiDrawSceneProxy::GetDynamicElementsSection(const TArray<const FSceneVi
 			//INC_DWORD_STAT_BY(STAT_SkelMeshTriangles,Mesh.GetNumPrimitives());
 			//INC_DWORD_STAT(STAT_SkelMeshDrawCalls);
 
+			// TODO : Multi draw mesh logic
+			if (MultiDrawMeshComponent)
+			{
+				if (MultiDrawMeshComponent->DrawMaterial.IsValidIndex(SectionIndex))
+				{
+					if (MultiDrawMeshComponent->DrawMaterial[SectionIndex] != nullptr)
+					{
+						FMeshBatch& OutlineMeshBatch = Collector.AllocateMesh();
+						OutlineMeshBatch = Mesh;
+						OutlineMeshBatch.bOverlayMaterial = true;
+						OutlineMeshBatch.CastShadow = false;
+						OutlineMeshBatch.bSelectable = false;
+						OutlineMeshBatch.MaterialRenderProxy = MultiDrawMeshComponent->DrawMaterial[SectionIndex]->GetRenderProxy();
+						// make sure overlay is always rendered on top of base mesh
+						OutlineMeshBatch.MeshIdInPrimitive += LODData.RenderSections.Num();
+						Collector.AddMesh(ViewIndex, OutlineMeshBatch);
+					}
+				}
+			}
+			
 			// negative cull distance disables overlay rendering
 			if (OverlayMaterial != nullptr && OverlayMaterialMaxDrawDistance >= 0.f)
 			{
@@ -366,26 +386,6 @@ void FMultiDrawSceneProxy::GetDynamicElementsSection(const TArray<const FSceneVi
 					// make sure overlay is always rendered on top of base mesh
 					OverlayMeshBatch.MeshIdInPrimitive += LODData.RenderSections.Num();
 					Collector.AddMesh(ViewIndex, OverlayMeshBatch);
-
-					// TODO : Multi draw mesh logic
-					if (MultiDrawMeshComponent)
-					{
-						if (MultiDrawMeshComponent->DrawMaterial.IsValidIndex(SectionIndex))
-						{
-							if (MultiDrawMeshComponent->DrawMaterial[SectionIndex] != nullptr)
-							{
-								FMeshBatch& OutlineMeshBatch = Collector.AllocateMesh();
-								OutlineMeshBatch = Mesh;
-								OutlineMeshBatch.bOverlayMaterial = true;
-								OutlineMeshBatch.CastShadow = false;
-								OutlineMeshBatch.bSelectable = false;
-								OutlineMeshBatch.MaterialRenderProxy = MultiDrawMeshComponent->DrawMaterial[SectionIndex]->GetRenderProxy();
-								// make sure overlay is always rendered on top of base mesh
-								OutlineMeshBatch.MeshIdInPrimitive += LODData.RenderSections.Num();
-								Collector.AddMesh(ViewIndex, OutlineMeshBatch);
-							}
-						}
-					}
 
 					// TODO : module problem ,we dont stat yet
 					//INC_DWORD_STAT_BY(STAT_SkelMeshTriangles, OverlayMeshBatch.GetNumPrimitives());

@@ -46,7 +46,6 @@ int32 UToonAnisoShadingModelOutput::Compile(class FMaterialCompiler* Compiler, i
 	case EToonAnisoShadingModelOutput::TangentRotation:
 		return CompileExpressionInput(TangentRotation, 0.f);
 	}
-	checkNoEntry();
 	return CompilerError(Compiler, TEXT("Input missing"));
 }
 
@@ -68,7 +67,6 @@ uint32 UToonAnisoShadingModelOutput::GetInputType(int32 InputIndex)
 	case EToonAnisoShadingModelOutput::TangentRotation:
 		return MCT_Float1;
 	}
-	checkNoEntry();
 	return MCT_Float1;
 }
 
@@ -85,7 +83,6 @@ FExpressionInput* UToonAnisoShadingModelOutput::GetInput(int32 InputIndex)
 	case EToonAnisoShadingModelOutput::TangentRotation:
 		return &TangentRotation;
 	}
-	checkNoEntry();
 	return nullptr;
 }
 #endif
