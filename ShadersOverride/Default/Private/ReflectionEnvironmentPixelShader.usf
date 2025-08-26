@@ -203,9 +203,9 @@ float3 ReflectionEnvironment(FGBufferData GBuffer, float AmbientOcclusion, float
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 	float2 LocalPosition = SvPosition.xy - View.ViewRectMin.xy;
 
-	uint GridIndex = ComputeLightGridCellIndex(uint2(LocalPosition.x, LocalPosition.y), GBuffer.Depth);
+	uint GridIndex = ComputeLightGridCellIndex(uint2(LocalPosition.x, LocalPosition.y), GBuffer.Depth, 0);
 
-	FCulledReflectionCapturesGridHeader CulledReflectionCapturesGridHeader = GetCulledReflectionCapturesGridHeader(GridIndex, 0);
+	FCulledReflectionCapturesGridHeader CulledReflectionCapturesGridHeader = GetCulledReflectionCapturesGridHeader(GridIndex);
 	uint NumCulledReflectionCaptures = CulledReflectionCapturesGridHeader.NumReflectionCaptures;
 	uint CaptureDataStartIndex = CulledReflectionCapturesGridHeader.DataStartIndex;
 #else
@@ -296,7 +296,7 @@ float GetCloudVolumetricAOShadow(in float3 TranslatedWorldPosition)
 	return 1.0f;
 }
 
-#if SUBSTRATE_ENABLED
+#if SUBTRATE_GBUFFER_FORMAT==1
 struct FSSRContribution
 {
 	float3 SSRTopLayerEnvBRDF;
@@ -337,28 +337,57 @@ float4 ApplySSRContribution(FSSRContribution In, float4 InReflectionInput)
 	return float4(InReflectionInput.rgb * In.SSRTopLayerEnvBRDF * saturate(In.SSRReductionFactor), 0.0);
 }
 
-float4 GetLumenReflectionOnly(
+struct FLumenReflectionOnlyOutput
+{
+	float4 LightingLobe0;
+	float4 LightingLobe1;
+};
+
+FLumenReflectionOnlyOutput GetLumenReflectionOnly(
 	in FSubstrateEnvLightResult SubstrateEnvLight,
 	in FSubstrateBSDF BSDF,
 	in float3 BSDFThroughput,
 	in float4 InReflectionInput)
 {
-	float4 OutLighting = float4(0, 0, 0, 1);
+	FLumenReflectionOnlyOutput Out = (FLumenReflectionOnlyOutput)0;
+	Out.LightingLobe0.a = 1;
+	Out.LightingLobe1.a = 1;
+	
 #if REFLECTION_SOURCE_TYPE == REFLECTION_SOURCE_LUMEN_STANDALONE
-	const float Roughness = SubstrateGetBSDFRoughness(BSDF);
+
 	const bool  bHasBackfaceDiffuse = SubstrateGetBSDFType(BSDF) == SUBSTRATE_BSDF_TYPE_SLAB && BSDF.HasBackScattering();
-	const float FadeAlpha = LumenCombineReflectionsAlpha(Roughness, bHasBackfaceDiffuse);
-	// Must branch as Lumen Reflections can be uninitialized where not needed and contain NaN
-	if (FadeAlpha > 0.0f)
+
+	// Primary highlight
 	{
-		OutLighting.rgb = InReflectionInput.xyz * FadeAlpha;
-		OutLighting.a = 1 - FadeAlpha;
+		const float Roughness = SubstrateGetBSDFRoughness(BSDF);
+		const float FadeAlpha = LumenCombineReflectionsAlpha(Roughness, bHasBackfaceDiffuse);
+		// Must branch as Lumen Reflections can be uninitialized where not needed and contain NaN
+		if (FadeAlpha > 0.0f)
+		{
+			Out.LightingLobe0.rgb = InReflectionInput.xyz * FadeAlpha;
+			Out.LightingLobe0.a = 1 - FadeAlpha;
+		}
 	}
+
+	// Secondary highlight
+	#if SUBSTRATE_FASTPATH==0
+	if (any(SubstrateEnvLight.SpecularHazeWeight > 0.0f))
+	{
+		const float Roughness = SubstrateEnvLight.SpecularHazeSafeRoughness;
+		const float FadeAlpha = LumenCombineReflectionsAlpha(Roughness, bHasBackfaceDiffuse);
+		// Must branch as Lumen Reflections can be uninitialized where not needed and contain NaN
+		if (FadeAlpha > 0.0f)
+		{
+			Out.LightingLobe1.rgb = InReflectionInput.xyz * FadeAlpha;
+			Out.LightingLobe1.a = 1 - FadeAlpha;
+		}
+	}
+	#endif 
 #endif
-	return OutLighting;
+	return Out;
 }
 
-#endif // SUBSTRATE_ENABLED
+#endif // SUBTRATE_GBUFFER_FORMAT==1
 
 
 void ReflectionEnvironmentSkyLighting(
@@ -382,7 +411,7 @@ void ReflectionEnvironmentSkyLighting(
 	OutSubSurfaceSceneColor = 0.0f;
 #endif
 
-#if SUBSTRATE_ENABLED
+#if SUBTRATE_GBUFFER_FORMAT==1 
 
 	FSubstrateAddressing SubstrateAddressing = GetSubstratePixelDataByteOffset(PixelPos, uint2(View.BufferSizeAndInvSize.xy), Substrate.MaxBytesPerPixel);
 	FSubstratePixelHeader SubstratePixelHeader = UnpackSubstrateHeaderIn(Substrate.MaterialTextureArray, SubstrateAddressing, Substrate.TopLayerTexture);
@@ -437,9 +466,9 @@ void ReflectionEnvironmentSkyLighting(
 	#if USE_DEFAULT_ENV_LIGHTING_INPUT && FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 		float2 LocalPosition = SvPosition.xy - View.ViewRectMin.xy;
 	
-		uint GridIndex = ComputeLightGridCellIndex(uint2(LocalPosition.x, LocalPosition.y), SceneDepth);
+		uint GridIndex = ComputeLightGridCellIndex(uint2(LocalPosition.x, LocalPosition.y), SceneDepth, 0);
 
-		FCulledReflectionCapturesGridHeader CulledReflectionCapturesGridHeader = GetCulledReflectionCapturesGridHeader(GridIndex, 0);
+		FCulledReflectionCapturesGridHeader CulledReflectionCapturesGridHeader = GetCulledReflectionCapturesGridHeader(GridIndex);
 		uint NumCulledReflectionCaptures = CulledReflectionCapturesGridHeader.NumReflectionCaptures;
 		uint CaptureDataStartIndex = CulledReflectionCapturesGridHeader.DataStartIndex;
 	#else
@@ -447,7 +476,8 @@ void ReflectionEnvironmentSkyLighting(
 		uint NumCulledReflectionCaptures = 0;
 	#endif
 
-		const bool bEnableSpecular = ReflectionStruct.SkyLightParameters.y > 0.0f || NumCulledReflectionCaptures > 0;
+		const bool bPixelMayHaveSSR = REFLECTION_SOURCE_TYPE == REFLECTION_SOURCE_LUMEN_STANDALONE || TopLayerSpecularContributionFactor < 1.0f;
+		const bool bEnableSpecular = ReflectionStruct.SkyLightParameters.y > 0.0f || NumCulledReflectionCaptures > 0 || bPixelMayHaveSSR;
 	
 		Substrate_for (uint ClosureIndex = 0, ClosureIndex < SubstratePixelHeader.ClosureCount, ++ClosureIndex)
 		{
@@ -485,9 +515,22 @@ void ReflectionEnvironmentSkyLighting(
 	
 		#if REFLECTION_SOURCE_TYPE == REFLECTION_SOURCE_LUMEN_STANDALONE
 			{
-				const float4 LumenReflections = GetLumenReflectionOnly(SubstrateEnvLight, BSDF, BSDFThroughput, Texture2DArraySample(LumenReflectionTexture, LumenReflectionTextureSampler, float3(BufferUV, ClosureIndex)));
-				SpecularLighting *= LumenReflections.a;
-				SpecularLighting += LumenReflections.xyz * BSDFThroughput * SubstrateEnvLight.SpecularWeight;
+				const FLumenReflectionOnlyOutput LumenReflections = GetLumenReflectionOnly(SubstrateEnvLight, BSDF, BSDFThroughput, Texture2DArraySample(LumenReflectionTexture, LumenReflectionTextureSampler, float3(BufferUV, ClosureIndex)));
+
+				SpecularLighting *= min(LumenReflections.LightingLobe0.a, LumenReflections.LightingLobe1.a);
+
+				// Primary specular lobe
+				{
+					SpecularLighting += LumenReflections.LightingLobe0.xyz * BSDFThroughput * SubstrateEnvLight.SpecularWeight;
+				}
+
+				// Secondary specular lobe
+				#if SUBSTRATE_FASTPATH==0
+				if (any(SubstrateEnvLight.SpecularHazeWeight > 0.0f))
+				{
+					SpecularLighting += LumenReflections.LightingLobe1.xyz * BSDFThroughput * SubstrateEnvLight.SpecularHazeWeight;
+				}
+				#endif 
 			}
 		#else
 			if (BSDF_GETISTOPLAYER(BSDF))
@@ -515,7 +558,7 @@ void ReflectionEnvironmentSkyLighting(
 		#endif
 	}
 
-#else // SUBSTRATE_ENABLED
+#else // SUBTRATE_GBUFFER_FORMAT==1
 
 	// Sample scene textures.
 	FGBufferData GBuffer = GetGBufferDataFromSceneTextures(BufferUV);
@@ -562,6 +605,6 @@ void ReflectionEnvironmentSkyLighting(
 		OutColor.xyz += ReflectionEnvironment(GBuffer, AmbientOcclusion, BufferUV, ScreenPosition, SvPosition, BentNormal, SpecularColor, ShadingModelID);
 	}
 
-#endif // SUBSTRATE_ENABLED
+#endif // SUBTRATE_GBUFFER_FORMAT==1
 }
 

@@ -386,7 +386,12 @@ void GBufferPostDecode(inout FGBufferData Ret, bool bChecker, bool bGetNormalize
 {
 	Ret.CustomData = HasCustomGBufferData(Ret.ShadingModelID) ? Ret.CustomData : half(0.0f);
 
+	// FirstPerson uses a bit in SelectiveOutputMask that is aliased with ZERO_PRECSHADOW_MASK when !ALLOW_STATIC_LIGHTING, so we explicitly skip this logic here.
+#if ALLOW_STATIC_LIGHTING
 	Ret.PrecomputedShadowFactors = !(Ret.SelectiveOutputMask & 0x2) ? Ret.PrecomputedShadowFactors : ((Ret.SelectiveOutputMask & 0x4) ? half(0.0f) : half(1.0f));
+#else
+	Ret.PrecomputedShadowFactors = half(1.0f);
+#endif
 	Ret.Velocity = !(Ret.SelectiveOutputMask & 0x8) ? Ret.Velocity : half(0.0f);
 	bool bHasAnisotropy = (Ret.SelectiveOutputMask & 0x1);
 

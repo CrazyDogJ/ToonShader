@@ -6,13 +6,13 @@
 
 #if SHADING_PATH_DEFERRED
 #if MATERIALBLENDING_ANY_TRANSLUCENT
-	#define ForwardLightData TranslucentBasePass.Shared.Forward
+	#define ForwardLightStruct TranslucentBasePass.Shared.Forward
 	#define ReflectionStruct TranslucentBasePass.Shared.Reflection
 	#define PlanarReflectionStruct TranslucentBasePass.Shared.PlanarReflection
 	#define FogStruct TranslucentBasePass.Shared.Fog
 	#define LFVStruct TranslucentBasePass.Shared
 #else
-	#define ForwardLightData OpaqueBasePass.Shared.Forward
+	#define ForwardLightStruct OpaqueBasePass.Shared.Forward
 	#define ReflectionStruct OpaqueBasePass.Shared.Reflection
 	#define PlanarReflectionStruct OpaqueBasePass.Shared.PlanarReflection
 	#define FogStruct OpaqueBasePass.Shared.Fog
@@ -119,6 +119,8 @@ struct FSharedBasePassInterpolants
 #define TranslucencyLightingVolumeAmbientOuter TranslucentBasePass.TranslucencyLightingVolumeAmbientOuter
 #define TranslucencyLightingVolumeDirectionalInner TranslucentBasePass.TranslucencyLightingVolumeDirectionalInner
 #define TranslucencyLightingVolumeDirectionalOuter TranslucentBasePass.TranslucencyLightingVolumeDirectionalOuter
+
+#define TranslucencyLightingRandomPositionOffsetRadius TranslucentBasePass.TranslucencyLightingRandomPositionOffsetRadius
 
 #include "TranslucencyVolumeCommon.ush"
 

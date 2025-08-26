@@ -26,7 +26,7 @@
 #define MOBILE_SHADOW_QUALITY 2
 #endif
 
-//It's always 0 in mobile deferred lighting shaders
+// Always enabled in mobile deferred lighting shaders
 #ifndef FULLY_ROUGH
 #define FULLY_ROUGH 0
 #endif
@@ -43,7 +43,7 @@
 
 //It's always 0 in mobile deferred lighting shaders
 #ifndef MOBILE_USE_PREINTEGRATED_GF
-#define  MOBILE_USE_PREINTEGRATED_GF 0
+#define MOBILE_USE_PREINTEGRATED_GF 1
 #endif
 
 //It's always 1 in mobile deferred lighting shaders
@@ -81,19 +81,6 @@ half3 GetEnvBRDF(half3 SpecularColor, half Roughness, half NoV)
 #endif
 }
 
-half3 MobileSpecularGGXInner(half D, half3 SpecularColor, half Roughness, half NoV, half NoL, half VoH, bool bHighQualityBRDF)
-{
-	half Vis = (Roughness * 0.25 + 0.25);
-	half3 F = GetEnvBRDF(SpecularColor, Roughness, NoV);
-
-	if (bHighQualityBRDF)
-	{
-		Vis = saturate(Vis_SmithJointApprox(Roughness * Roughness * Roughness * Roughness, NoV, NoL));
-		F = F_Schlick(SpecularColor, VoH);
-	}
-
-	return (D * Vis) * F;
-}
 #endif // SHADING_PATH_MOBILE
 
 #if 0
@@ -187,12 +174,12 @@ float EnergyNormalization( inout float a2, float VoH, FAreaLight AreaLight )
 		float LineCosTwoAlpha = AreaLight.LineCosSubtended;
 		float LineTanAlpha = sqrt( ( 1.0001 - LineCosTwoAlpha ) / ( 1 + LineCosTwoAlpha ) );
 		float Line_a2 = New_a2( Sphere_a2, LineTanAlpha, VoH );
-		Energy *= sqrt( Sphere_a2 / Line_a2 );
+		Energy *= sqrt( Sphere_a2 / max(Line_a2, 1e-5) );
 #else
 		float LineCosTwoAlpha = AreaLight.LineCosSubtended;
 		float LineSinAlpha = sqrt( 0.5 - 0.5 * LineCosTwoAlpha );
 		float Line_a2 = New_a2( Sphere_a2, LineSinAlpha, VoH );
-		Energy *= Sphere_a2 / Line_a2;
+		Energy *= Sphere_a2 / max(Line_a2, 1e-5);
 #endif
 	}
 
@@ -230,17 +217,12 @@ float3 SpecularGGX( float Roughness, float3 SpecularColor, BxDFContext Context, 
 	float a2 = Pow4( Roughness );
 	float Energy = EnergyNormalization( a2, Context.VoH, AreaLight );
 	
-#if SHADING_PATH_MOBILE
-	half D = D_GGX_Mobile(Roughness, Context.NoH) * Energy;
-	return MobileSpecularGGXInner(D, SpecularColor, Roughness, Context.NoV, NoL, Context.VoH, MOBILE_HIGH_QUALITY_BRDF);
-#else
 	// Generalized microfacet specular
 	float D = D_GGX( a2, Context.NoH ) * Energy;
 	float Vis = Vis_SmithJointApprox( a2, Context.NoV, NoL );
 	float3 F = F_Schlick( SpecularColor, Context.VoH );
 
 	return (D * Vis) * F;
-#endif
 }
 
 half3 DualSpecularGGX(half AverageRoughness, half Lobe0Roughness, half Lobe1Roughness, half LobeMix, half3 SpecularColor, BxDFContext Context, half NoL, FAreaLight AreaLight)
@@ -252,18 +234,12 @@ half3 DualSpecularGGX(half AverageRoughness, half Lobe0Roughness, half Lobe1Roug
 	float Lobe0Energy = EnergyNormalization(Lobe0Alpha2, Context.VoH, AreaLight);
 	float Lobe1Energy = EnergyNormalization(Lobe1Alpha2, Context.VoH, AreaLight);
 
-#if SHADING_PATH_MOBILE
-	half D = lerp(D_GGX_Mobile(Lobe0Roughness, Context.NoH) * Lobe0Energy, D_GGX_Mobile(Lobe1Roughness, Context.NoH) * Lobe1Energy, LobeMix);
-
-	return MobileSpecularGGXInner(D, SpecularColor, AverageRoughness, Context.NoV, NoL, Context.VoH, MOBILE_HIGH_QUALITY_BRDF);
-#else
 	// Generalized microfacet specular
 	float D = lerp(D_GGX(Lobe0Alpha2, Context.NoH) * Lobe0Energy, D_GGX(Lobe1Alpha2, Context.NoH) * Lobe1Energy, LobeMix);
 	float Vis = Vis_SmithJointApprox(AverageAlpha2, Context.NoV, NoL); // Average visibility well approximates using two separate ones (one per lobe).
 	float3 F = F_Schlick(SpecularColor, Context.VoH);
 
 	return (D * Vis) * F;
-#endif
 }
 
 FDirectLighting DefaultLitBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, half NoL, FAreaLight AreaLight, FShadowTerms Shadow )
@@ -274,6 +250,14 @@ FDirectLighting DefaultLitBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L,
 	Lighting.Specular = 0;
 	Lighting.Transmission = 0;
 
+	
+#if FEATURE_LEVEL == FEATURE_LEVEL_ES3_1
+	// adjust N for Adreno shader compilation bug. See UE-274816
+	N = N * 0.5f;
+	N = normalize(N);
+#endif
+	
+	
 	BRANCH
 	if (NoL > 0.0f)
 	{
@@ -416,8 +400,8 @@ BxDFContext RefractClearCoatContext(BxDFContext Context)
 
 FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, half NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
-	const half ClearCoat			= GBuffer.CustomData.x;
-	const half ClearCoatRoughness	= max(GBuffer.CustomData.y, 0.02f);
+	const float ClearCoat			= GBuffer.CustomData.x;
+	const float ClearCoatRoughness	= max(GBuffer.CustomData.y, 0.02f);
 
 	FDirectLighting Lighting = {
 		float3(0.0, 0.0, 0.0),
@@ -479,12 +463,7 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 		float a2 = Pow2(Alpha);
 		float ClearCoatEnergy = EnergyNormalization(a2, Context.VoH, AreaLight);
 		half Vis = Vis_SmithJointApprox(a2, Context.NoV, NoL);
-#if SHADING_PATH_MOBILE
-		half D = D_GGX_Mobile(ClearCoatRoughness, Context.NoH) * ClearCoatEnergy;
-		Vis = saturate(Vis);
-#else
 		float D = D_GGX(a2, Context.NoH) * ClearCoatEnergy;
-#endif
 		half Fr1 = (D * Vis) * F;
 		Lighting.Specular = ClearCoat * AreaLight.FalloffColor * (Falloff * NoL * Fr1);
 	}
@@ -589,32 +568,9 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 		half D2 = 0;
 		half Vis2 = 0;
 
-		BRANCH
-		if (bHasAnisotropy)
-		{
-			float ax = 0;
-			float ay = 0;
-			GetAnisotropicRoughness(Alpha, GBuffer.Anisotropy, ax, ay); 
-
-			D2 = D_GGXaniso(ax, ay, Context.NoH, Context.XoH, Context.YoH);
-			Vis2 = Vis_SmithJointAniso(ax, ay, BottomContext.NoV, BottomContext.NoL, BottomContext.XoV, BottomContext.XoL, BottomContext.YoV, BottomContext.YoL);
-		}
-		else
-		{
-			// NoL is chosen to provide better parity with DefaultLit when ClearCoat=0
-			Vis2 = Vis_SmithJointApprox(a2, BottomContext.NoV, NoL);
-#if SHADING_PATH_MOBILE
-			D2 = D_GGX_Mobile(GBuffer.Roughness, BottomContext.NoH);
-			Vis2 = saturate(Vis2);
-#else
-			D2 = D_GGX(a2, BottomContext.NoH);
-#endif
-		}
-		half3 F_Bot = F_Schlick(GBuffer.SpecularColor, BottomContext.VoH);
-		half3 F_DefaultLit = F_Schlick(GBuffer.SpecularColor, Context.VoH);
-		
+		// The energy factor for correcting area light shape needs to be computed "before" the actual D_GGX term, 
+		// as calling EnergyNormalization() modify the "a2" value.
 		float Energy = 0;
-
 		BRANCH
 		if (bHasAnisotropy)
 		{
@@ -631,6 +587,25 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 		{
 			Energy = EnergyNormalization(a2, Context.VoH, AreaLight);
 		}
+
+		BRANCH
+		if (bHasAnisotropy)
+		{
+			float ax = 0;
+			float ay = 0;
+			GetAnisotropicRoughness(Alpha, GBuffer.Anisotropy, ax, ay); 
+
+			D2 = D_GGXaniso(ax, ay, Context.NoH, Context.XoH, Context.YoH);
+			Vis2 = Vis_SmithJointAniso(ax, ay, BottomContext.NoV, BottomContext.NoL, BottomContext.XoV, BottomContext.XoL, BottomContext.YoV, BottomContext.YoL);
+		}
+		else
+		{
+			// NoL is chosen to provide better parity with DefaultLit when ClearCoat=0
+			Vis2 = Vis_SmithJointApprox(a2, BottomContext.NoV, NoL);
+			D2 = D_GGX(a2, BottomContext.NoH);
+		}
+		half3 F_Bot = F_Schlick(GBuffer.SpecularColor, BottomContext.VoH);
+		half3 F_DefaultLit = F_Schlick(GBuffer.SpecularColor, Context.VoH);
 
 		// Note: reusing D and V from refracted context to save computation when ClearCoat < 1
 		float3 CommonSpecular = (Energy * Falloff * NoL * D2 * Vis2) * AreaLight.FalloffColor;
@@ -846,11 +821,7 @@ FDirectLighting TwoSidedBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 
 	// Scatter distribution
 	half VoL = dot(V, L);
-#if SHADING_PATH_MOBILE
-	half Scatter = D_GGX_Mobile(0.6, saturate(-VoL));
-#else
 	float Scatter = D_GGX( 0.6*0.6, saturate( -VoL ) );
-#endif
 
 	Lighting.Transmission = AreaLight.FalloffColor * (Falloff * WrapNoL * Scatter) * SubsurfaceColor;
 
@@ -909,12 +880,7 @@ FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float 
 		float Energy = EnergyNormalization( a2, Context.VoH, AreaLight );
 		// Generalized microfacet specular
 		float Vis = Vis_SmithJointApprox(a2, Context.NoV, NoL);
-#if SHADING_PATH_MOBILE
-		half D = D_GGX_Mobile(GBuffer.Roughness, Context.NoH) * Energy;
-		Vis = saturate(Vis);
-#else
 		float D = D_GGX(a2, Context.NoH) * Energy;
-#endif
 		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * D * Vis * F;
 	}
 

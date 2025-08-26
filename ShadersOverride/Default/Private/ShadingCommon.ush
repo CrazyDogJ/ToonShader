@@ -38,6 +38,7 @@
 #define HAS_ANISOTROPY_MASK				(1 << 4)
 #define SKIP_PRECSHADOW_MASK			(1 << 5)
 #define ZERO_PRECSHADOW_MASK			(1 << 6)
+#define IS_FIRST_PERSON_MASK			(1 << 6) // Technically not related to the SelectiveOutputMask, but IS_FIRST_PERSON_MASK shares a bit with ZERO_PRECSHADOW_MASK and consequently only works if ALLOW_STATIC_LIGHTING is 0.
 #define SKIP_VELOCITY_MASK				(1 << 7)
 
 #define SSS_PROFILE_ID_INVALID  256
@@ -102,7 +103,7 @@ float F0ToDielectricSpecular(float F0)
 
 float F0RGBToF0(float3 F0)
 {
-	return dot(0.3333333.xxx, F0);
+	return max3(F0.r, F0.g, F0.b);
 }
 
 float F0RGBToDielectricSpecular(float3 F0)
@@ -134,13 +135,14 @@ float DielectricIorToF0(float Ior)
 }
 
 // Anything with Specular less than 2% is physically impossible and is instead considered to be shadowing.
+// See F_Schlick implementation.
 float  GetF0MicroOcclusionThreshold() { return 0.02f; }
 float  F0ToMicroOcclusion(float F0)   { return saturate(50.0 * F0); }
 float3 F0ToMicroOcclusion(float3 F0)  { return saturate(50.0 * F0); }
 
 float F0RGBToMicroOcclusion(float3 F0)
 {
-	return F0ToMicroOcclusion(max(F0.r, max(F0.g, F0.b)));
+	return F0ToMicroOcclusion(F0RGBToF0(F0));
 }
 
 half3 ComputeF0(half Specular, half3 BaseColor, half Metallic)
@@ -175,7 +177,7 @@ float F0ToMetallic(float F0)
 
 float F0RGBToMetallic(float3 F0)
 {
-	return F0ToMetallic(max(F0.r, max(F0.g, F0.b)));
+	return F0ToMetallic(F0RGBToF0(F0));
 }
 
 

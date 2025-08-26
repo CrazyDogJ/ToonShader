@@ -12,6 +12,7 @@
 void SetGBufferForShadingModel(
 	in out FGBufferData GBuffer, 
 	in out FMaterialPixelParameters MaterialParameters,
+	FPixelMaterialInputs PixelMaterialInputs,
 	const float Opacity,
 	const half3 BaseColor,
 	const half  Metallic,
@@ -65,7 +66,7 @@ void SetGBufferForShadingModel(
 
 		#if SHADING_PATH_MOBILE
 			#if MATERIAL_SUBSURFACE_PROFILE_USE_CURVATURE
-				GBuffer.Curvature = GetMaterialCustomData0(MaterialParameters);
+				GBuffer.Curvature = GetMaterialCustomData0(PixelMaterialInputs);
 			#else
 				GBuffer.Curvature = CalculateCurvature(GBuffer.WorldNormal, MaterialParameters.WorldPosition_CamRelative);
 			#endif
@@ -85,8 +86,8 @@ void SetGBufferForShadingModel(
 #if MATERIAL_SHADINGMODEL_CLEAR_COAT
 	else if (ShadingModel == SHADINGMODELID_CLEAR_COAT)
 	{
-		float ClearCoat				= saturate( GetMaterialCustomData0(MaterialParameters) );
-		float ClearCoatRoughness	= saturate( GetMaterialCustomData1(MaterialParameters) );
+		float ClearCoat				= saturate( GetMaterialCustomData0(PixelMaterialInputs) );
+		float ClearCoatRoughness	= saturate( GetMaterialCustomData1(PixelMaterialInputs) );
 		GBuffer.CustomData.x = ClearCoat;
 		GBuffer.CustomData.y = ClearCoatRoughness;
 
@@ -127,22 +128,22 @@ void SetGBufferForShadingModel(
 	else if (ShadingModel == SHADINGMODELID_HAIR)
 	{
 		GBuffer.CustomData.xy = UnitVectorToOctahedron( MaterialParameters.WorldNormal ) * 0.5 + 0.5;
-		GBuffer.CustomData.z = saturate( GetMaterialCustomData0(MaterialParameters) );	// Backlit
+		GBuffer.CustomData.z = saturate( GetMaterialCustomData0(PixelMaterialInputs) );	// Backlit
 	}
 #endif
 #if MATERIAL_SHADINGMODEL_CLOTH
 	else if (ShadingModel == SHADINGMODELID_CLOTH)
 	{
 		GBuffer.CustomData.rgb = EncodeSubsurfaceColor(SubsurfaceColor);
-		GBuffer.CustomData.a = saturate( GetMaterialCustomData0(MaterialParameters) );	// Cloth
+		GBuffer.CustomData.a = saturate( GetMaterialCustomData0(PixelMaterialInputs) );	// Cloth
 		GBuffer.IndirectIrradiance *= 1 - GBuffer.CustomData.a;
 	}
 #endif
 #if MATERIAL_SHADINGMODEL_EYE
 	else if (ShadingModel == SHADINGMODELID_EYE)
 	{
-		const float IrisMask     = saturate(GetMaterialCustomData0(MaterialParameters));
-		const float IrisDistance = saturate(GetMaterialCustomData1(MaterialParameters));
+		const float IrisMask     = saturate(GetMaterialCustomData0(PixelMaterialInputs));
+		const float IrisDistance = saturate(GetMaterialCustomData1(PixelMaterialInputs));
 
 		GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
 		GBuffer.CustomData.w = 1.0f - IrisMask;	// Opacity
