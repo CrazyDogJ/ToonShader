@@ -404,7 +404,7 @@ FLightAccumulator AccumulateDynamicLighting(
 			
 			// Toon Shading
 			float3 Attenuation = 1;
-			float3 ToonTransmission = (0,0,0);
+			float3 ToonTransmission = 0;
 			BRANCH
 			if ( GBuffer.ShadingModelID == SHADINGMODELID_TOON || GBuffer.ShadingModelID == SHADINGMODELID_TOON_SKIN || GBuffer.ShadingModelID == SHADINGMODELID_TOON_ANISO || GBuffer.ShadingModelID == SHADINGMODELID_TOON_HAIR)
 			{

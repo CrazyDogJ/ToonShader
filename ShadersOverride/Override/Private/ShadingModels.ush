@@ -944,7 +944,7 @@ float D_GGXaniso_old_to_new( float ax, float ay, float NoH, float3 H, float3 X, 
 	return D_GGXaniso( ax, ay, NoH, saturate(dot(X, H)), saturate(dot(Y, H))); 
 }
 
-float3 ToonStep (float Range, float Input)
+float ToonStep (float Range, float Input)
 {
 	return smoothstep(0.5 - Range, 0.5 + Range, Input);
 }
