@@ -3,8 +3,10 @@
 
 #include "ToonFunctionLibrary.h"
 
+#include "Components/CapsuleComponent.h"
+
 void UToonFunctionLibrary::SetMaterialSlotsOverlayMaterial(USkeletalMeshComponent* MeshComponent,
-																 const TArray<UMaterialInterface*>& Materials)
+                                                           const TArray<UMaterialInterface*>& Materials)
 {
 	if (MeshComponent == nullptr)
 	{
@@ -57,4 +59,42 @@ void UToonFunctionLibrary::SetScalarParameterValueOnOverlayMaterials(USkeletalMe
 			DynamicMaterial->SetScalarParameterValue(ParameterName, ParameterValue);
 		}
 	}
+}
+
+FVector UToonFunctionLibrary::FindClosestPointOnCapsule(const FVector& Point, const UCapsuleComponent* Capsule, bool& bIsInCapsule)
+{
+	// 胶囊体的上半球中心和下半球中心
+	FVector CapsuleLocation = Capsule->GetComponentLocation();
+	FVector CapsuleTop = CapsuleLocation + Capsule->GetScaledCapsuleHalfHeight() * Capsule->GetUpVector();
+	FVector CapsuleBottom = CapsuleLocation - Capsule->GetScaledCapsuleHalfHeight() * Capsule->GetUpVector();
+
+	// 将点投影到胶囊体轴上
+	FVector PointProjection = FMath::ClosestPointOnSegment(Point, CapsuleBottom, CapsuleTop);
+
+	// 计算从投影点到输入点的向量
+	FVector ToPoint = Point - PointProjection;
+
+	bIsInCapsule = ToPoint.Length() <= Capsule->GetScaledCapsuleRadius();
+	ToPoint = ToPoint.GetSafeNormal(); // 归一化向量
+
+	// 返回最近点
+	return PointProjection + ToPoint * Capsule->GetScaledCapsuleRadius();
+}
+
+float UToonFunctionLibrary::GetDistanceToCapsule(const FVector& Location, const UCapsuleComponent* Capsule)
+{
+	if (!Capsule)
+	{
+		return -1.0f;
+	}
+
+	// 计算胶囊体上最近的点
+	bool bIsInCapsule;
+	FVector ClosestPointOnCapsule = FindClosestPointOnCapsule(Location, Capsule, bIsInCapsule);
+
+	// 计算距离
+	float Distance = FVector::Dist(Location, ClosestPointOnCapsule);
+	Distance *= bIsInCapsule ? -1 : 1;
+
+	return Distance;
 }

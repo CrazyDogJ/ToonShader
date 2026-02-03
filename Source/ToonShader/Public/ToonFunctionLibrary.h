@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/CapsuleComponent.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ToonFunctionLibrary.generated.h"
 
@@ -19,4 +20,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Toon Shading")
 	static void SetScalarParameterValueOnOverlayMaterials(USkeletalMeshComponent* MeshComponent, const FName ParameterName, const float ParameterValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Toon Shading")
+	static FVector FindClosestPointOnCapsule(const FVector& Point, const UCapsuleComponent* Capsule, bool& bIsInCapsule);
+
+	UFUNCTION(BlueprintCallable, Category = "Toon Shading")
+	static float GetDistanceToCapsule(const FVector& Location, const UCapsuleComponent* Capsule);
 };
