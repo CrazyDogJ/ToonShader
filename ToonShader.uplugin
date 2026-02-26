@@ -16,7 +16,7 @@
 		{
 			"Name": "ToonShader",
 			"Type": "Runtime",
-			"LoadingPhase": "PreLoadingScreen"
+			"LoadingPhase": "PostConfigInit"
 		},
 		{
 			"Name": "ToonShaderBootstrap",
