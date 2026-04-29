@@ -1030,47 +1030,6 @@ FDirectLighting ToonBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float
 	return Lighting;
 }
 
-//half Fresnel(half Exponent, half BaseReflectionFraction, half3 N, half3 V)
-//{
-//	half NoV = dot(N, V);
-//	NoV = max(NoV, 0.0f);
-//	half Fres = pow(abs(1 - max(NoV, 0.0f)), Exponent);
-//	Fres = Fres * (1 - BaseReflectionFraction) + BaseReflectionFraction;
-//	return Fres;
-//}
-//
-//float StrandSpecular(float3 T, float3 V, float3 L, float exponent, float scale)
-//{
-//	float3 H = normalize(L + V);
-//	float dotTH = dot(T, H);
-//	float sinTH = sqrt(1.0 - dotTH * dotTH);
-//	float dirAtten = smoothstep(-1.0, 0.0, dotTH);
-//	return dirAtten * pow(sinTH, exponent) * scale;
-//}
-//
-//float3 ShiftT(float3 T, float3 N, float shift)
-//{
-//	return normalize(T + shift * N);
-//}
-//FDirectLighting ToonHairBxDF(FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow)
-//{
-//	// 菲涅尔边缘光使用
-//	// half rim = saturate(ceil(Fresnel((1 - 0.8) * 1000, 0, N, V))) * 2;
-//	// 用金属度实现其他东西，头发我们不需要金属度
-//	float Tshift = GBuffer.Metallic;
-//	half3 T = normalize(cross(N, GBuffer.WorldNormal));
-//	half NoLOffset = saturate(ceil(dot(N, L)));
-//	float3 LightColor = AreaLight.FalloffColor * Falloff;
-//	T = ShiftT(T, N, Tshift);  // 偏移
-//	float Range = GBuffer.CustomData.y * 1000;
-//	float AnisortopySpecular = saturate(StrandSpecular(T, V, L, Range, GBuffer.Specular));
-//	FDirectLighting Lighting;
-//	Lighting.Diffuse = LightColor * Diffuse_Lambert(GBuffer.BaseColor) * NoLOffset;
-//	Lighting.Specular = LightColor * AnisortopySpecular * NoLOffset;
-//	Lighting.Transmission = 0;
-//	return Lighting;
-//}
-
 FDirectLighting ToonHairBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
 	BxDFContext Context;

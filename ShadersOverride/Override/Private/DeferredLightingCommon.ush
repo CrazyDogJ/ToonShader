@@ -495,36 +495,21 @@ FLightAccumulator AccumulateDynamicLighting(
 			BRANCH
 			if ( GBuffer.ShadingModelID == SHADINGMODELID_TOON || GBuffer.ShadingModelID == SHADINGMODELID_TOON_SKIN || GBuffer.ShadingModelID == SHADINGMODELID_TOON_ANISO )
 			{
-				LightAccumulator.TotalLightDiffuse = GBuffer.CustomData.rgb;
-				
-				LightAccumulator_AddSplit( LightAccumulator, Lighting.Diffuse, Lighting.Specular, Lighting.Diffuse, LightColor * 0.5 * LightMask * Attenuation, bNeedsSeparateSubsurfaceLightAccumulation );
+				// Lit contribution: normal light accumulation, gated by Attenuation
+				LightAccumulator_AddSplit( LightAccumulator, Lighting.Diffuse, Lighting.Specular, Lighting.Diffuse, MaskedLightColor * Shadow.SurfaceShadow * Attenuation * 0.25, bNeedsSeparateSubsurfaceLightAccumulation );
 			}
 			else if (GBuffer.ShadingModelID == SHADINGMODELID_TOON_HAIR )
 			{
-				LightAccumulator_AddSplit( LightAccumulator, Lighting.Diffuse, Lighting.Specular, Lighting.Diffuse, LightColor * LightMask * Attenuation, bNeedsSeparateSubsurfaceLightAccumulation );
-				LightAccumulator_AddSplit( LightAccumulator, Lighting.Transmission, 0.0f, Lighting.Transmission, MaskedLightColor * Shadow.TransmissionShadow, bNeedsSeparateSubsurfaceLightAccumulation );
+				LightAccumulator_AddSplit( LightAccumulator, Lighting.Diffuse, Lighting.Specular, Lighting.Diffuse, MaskedLightColor * Shadow.SurfaceShadow * Attenuation, bNeedsSeparateSubsurfaceLightAccumulation );
 			}
 			else
 			{
 				LightAccumulator_AddSplit( LightAccumulator, Lighting.Diffuse, Lighting.Specular, Lighting.Diffuse, MaskedLightColor * Shadow.SurfaceShadow, bNeedsSeparateSubsurfaceLightAccumulation );
-				LightAccumulator_AddSplit( LightAccumulator, Lighting.Transmission, 0.0f, Lighting.Transmission, MaskedLightColor * Shadow.TransmissionShadow, bNeedsSeparateSubsurfaceLightAccumulation );
 			}
+			LightAccumulator_AddSplit( LightAccumulator, Lighting.Transmission, 0.0f, Lighting.Transmission, MaskedLightColor * Shadow.TransmissionShadow, bNeedsSeparateSubsurfaceLightAccumulation );
 			
 			LightAccumulator.EstimatedCost += 0.4f;		// add the cost of the lighting computations (should sum up to 1 form one light)
 #endif
-		}
-		else
-		{
-			// Shadow color here
-			if (GBuffer.ShadingModelID == SHADINGMODELID_TOON || GBuffer.ShadingModelID == SHADINGMODELID_TOON_SKIN || GBuffer.ShadingModelID == SHADINGMODELID_TOON_ANISO)
-			{
-				LightAccumulator.TotalLightDiffuse = GBuffer.CustomData.rgb;
-			}
-
-			//if (GBuffer.ShadingModelID == SHADINGMODELID_TOON_HAIR)
-			//{
-			//	LightAccumulator.TotalLightDiffuse = GBuffer.CustomData.y * 0.25 * GBuffer.DiffuseColor;
-			//}
 		}
 #endif // SHADING_PATH_MOBILE
 	}
